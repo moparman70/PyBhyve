@@ -2,18 +2,12 @@
 
 
 class BHyveError(Exception):
-    """Define a base error."""
-    
-    pass
+    """Define a base error"""
 
 
 class RequestError(BHyveError):
-    """Define an error related to invalid requests."""
-    
-    pass
+    """Define an error related to invalid requests"""
 
 
 class WebsocketError(BHyveError):
-    """Define an error related to generic websocket errors."""
-    
-    pass
+    """Define an error related to generic websocket errors"""

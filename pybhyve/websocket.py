@@ -1,4 +1,8 @@
-import logging, json, aiohttp
+"""B-Hyve websocket"""
+
+import logging
+import json
+import aiohttp
 
 from aiohttp import WSMsgType
 from asyncio import ensure_future
@@ -12,14 +16,13 @@ STATE_STOPPED = "stopped"
 
 RECONNECT_DELAY = 5
 
+
 class OrbitWebsocket:
-    """
-        Websocket transport, session handling, message generation.
-        Inspired by https://github.com/Kane610/deconz/blob/master/pydeconz/websocket.py
-    """
+    """Websocket transport, session handling, message generation"""
 
     def __init__(self, token, loop, session, url, async_callback):
-        """Create resources for websocket communication."""
+        """Create resources for websocket communication"""
+
         self._token = token
         self._loop = loop
         self._session = session
@@ -32,30 +35,36 @@ class OrbitWebsocket:
         self._ws = None
 
     def _cancel_heartbeat(self) -> None:
+        """Cancel heartbeat"""
+
         if self._heartbeat_cb is not None:
             self._heartbeat_cb.cancel()
             self._heartbeat_cb = None
 
     def _reset_heartbeat(self) -> None:
+        """Reset heartbeat"""
+
         self._cancel_heartbeat()
 
         when = ceil(self._loop.time() + self._heartbeat)
         self._heartbeat_cb = self._loop.call_at(when, self._send_heartbeat)
 
     def _send_heartbeat(self) -> None:
+        """Send heartbeat"""
+
         if not self._ws.closed:
-            # fire-and-forget a task is not perfect but maybe ok for
-            # sending ping. Otherwise we need a long-living heartbeat
-            # task in the class.
             self._loop.create_task(self._ping())
 
     async def _ping(self):
+        """Handle ping"""
+
         await self._ws.send_str(json.dumps({"event": "ping"}))
         self._reset_heartbeat()
 
     @property
     def state(self):
-        """ Returns the state of the websocket. """
+        """Returns the state of the websocket"""
+
         return self._state
 
     @state.setter
@@ -63,13 +72,15 @@ class OrbitWebsocket:
         self._state = value
 
     def start(self):
-        """ Start the websocket. """
+        """Start the websocket"""
+
         if self.state != STATE_RUNNING:
             self.state = STATE_STARTING
         self._loop.create_task(self.running())
 
     async def running(self):
-        """Start websocket connection."""
+        """Start websocket connection"""
+
         try:
             if self._ws is None or self._ws.closed or self.state != STATE_RUNNING:
                 async with self._session.ws_connect(self._url) as self._ws:
@@ -100,11 +111,11 @@ class OrbitWebsocket:
                             self._ws.pong()
 
                         elif msg.type == WSMsgType.CLOSED:
-                            _LOGGER.error("websocket connection closed")
+                            _LOGGER.error("Websocket connection closed")
                             break
 
                         elif msg.type == WSMsgType.ERROR:
-                            _LOGGER.error("websocket error %s", self._ws.exception())
+                            _LOGGER.error("Websocket error %s", self._ws.exception())
                             break
 
                     if self._ws.closed:
@@ -129,19 +140,22 @@ class OrbitWebsocket:
                 self.retry()
 
     async def stop(self):
-        """Close websocket connection."""
+        """Close websocket connection"""
+
         self.state = STATE_STOPPED
         await self._ws.close()
 
     def retry(self):
-        """Retry to connect to Orbit."""
+        """Retry to connect to Orbit"""
+
         if self.state != STATE_STARTING:
             self.state = STATE_STARTING
             self._loop.call_later(RECONNECT_DELAY, self.start)
-            _LOGGER.info("Reconnecting to Orbit in %i.", RECONNECT_DELAY)
+            _LOGGER.info("Reconnecting to Orbit in %i", RECONNECT_DELAY)
 
     async def send(self, payload):
-        """Send a websocket message."""
+        """Send a websocket message"""
+
         if not self._ws.closed:
             await self._ws.send_str(json.dumps(payload))
         else:

@@ -1,5 +1,3 @@
-"""Define module exports."""
-from .client import Client  # noqa
+"""Define module exports"""
 
-VERSION = '0.0.7dev'
-__version__ = VERSION
+from .client import Client
