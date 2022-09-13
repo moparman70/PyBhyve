@@ -16,7 +16,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 setup(
     name='PyBhyve',
-    version='0.0.1',
+    version='0.0.2',
     url='https://github.com/moparman70/PyBhyve',
     license='GNU GPL v3',
     description='Communication tool for the B-Hyve water timer devices',
