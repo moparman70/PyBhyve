@@ -1,3 +1,1 @@
-"""Define module exports"""
-
-from .client import Client
+"""B-hyve Integration."""
