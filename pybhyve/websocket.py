@@ -1,12 +1,15 @@
-"""B-Hyve websocket"""
+"""B-Hyve websocket."""
 
-import logging
-import json
-import aiohttp
+from __future__ import annotations
 
-from aiohttp import WSMsgType
 from asyncio import ensure_future
+from asyncio.events import AbstractEventLoop, TimerHandle
+import json
+import logging
 from math import ceil
+
+import aiohttp
+from aiohttp import ClientSession, ClientWebSocketResponse, WSMsgType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,31 +21,36 @@ RECONNECT_DELAY = 5
 
 
 class OrbitWebsocket:
-    """Websocket transport, session handling, message generation"""
+    """Websocket transport, session handling, message generation."""
 
-    def __init__(self, token, loop, session, url, async_callback):
-        """Create resources for websocket communication"""
+    def __init__(
+        self,
+        token: str,
+        loop: AbstractEventLoop,
+        session: ClientSession,
+        url: str,
+        async_callback,
+    ) -> None:
+        """Create resources for websocket communication."""
 
         self._token = token
         self._loop = loop
         self._session = session
         self._url = url
         self._async_callback = async_callback
-        self._state = None
+        self._state = STATE_STOPPED
 
-        self._heartbeat_cb = None
+        self._heartbeat_cb: TimerHandle
         self._heartbeat = 25
-        self._ws = None
+        self._ws: ClientWebSocketResponse
 
     def _cancel_heartbeat(self) -> None:
-        """Cancel heartbeat"""
+        """Cancel heartbeat."""
 
-        if self._heartbeat_cb is not None:
-            self._heartbeat_cb.cancel()
-            self._heartbeat_cb = None
+        self._heartbeat_cb.cancel()
 
     def _reset_heartbeat(self) -> None:
-        """Reset heartbeat"""
+        """Reset heartbeat."""
 
         self._cancel_heartbeat()
 
@@ -50,20 +58,20 @@ class OrbitWebsocket:
         self._heartbeat_cb = self._loop.call_at(when, self._send_heartbeat)
 
     def _send_heartbeat(self) -> None:
-        """Send heartbeat"""
+        """Send heartbeat."""
 
         if not self._ws.closed:
             self._loop.create_task(self._ping())
 
     async def _ping(self):
-        """Handle ping"""
+        """Handle ping."""
 
         await self._ws.send_str(json.dumps({"event": "ping"}))
         self._reset_heartbeat()
 
     @property
     def state(self):
-        """Returns the state of the websocket"""
+        """Returns the state of the websocket."""
 
         return self._state
 
@@ -72,14 +80,14 @@ class OrbitWebsocket:
         self._state = value
 
     def start(self):
-        """Start the websocket"""
+        """Start the websocket."""
 
         if self.state != STATE_RUNNING:
             self.state = STATE_STARTING
         self._loop.create_task(self.running())
 
     async def running(self):
-        """Start websocket connection"""
+        """Start websocket connection."""
 
         try:
             if self._ws is None or self._ws.closed or self.state != STATE_RUNNING:
@@ -104,11 +112,11 @@ class OrbitWebsocket:
                         if self.state == STATE_STOPPED:
                             break
 
-                        elif msg.type == WSMsgType.TEXT:
-                            ensure_future(self._async_callback(json.loads(msg.data)))
+                        if msg.type == WSMsgType.TEXT:
+                            ensure_future(self._async_callback(json.loads(msg.data)))  # noqa: RUF006
 
                         elif msg.type == WSMsgType.PING:
-                            self._ws.pong()
+                            await self._ws.pong()
 
                         elif msg.type == WSMsgType.CLOSED:
                             _LOGGER.error("Websocket connection closed")
@@ -129,8 +137,8 @@ class OrbitWebsocket:
             if self.state != STATE_STOPPED:
                 self.retry()
 
-        except Exception as err:
-            _LOGGER.error("Unexpected error %s", err)
+        except Exception:
+            _LOGGER.exception("Unexpected error %s")
             if self.state != STATE_STOPPED:
                 self.retry()
 
@@ -140,13 +148,13 @@ class OrbitWebsocket:
                 self.retry()
 
     async def stop(self):
-        """Close websocket connection"""
+        """Close websocket connection."""
 
         self.state = STATE_STOPPED
         await self._ws.close()
 
     def retry(self):
-        """Retry to connect to Orbit"""
+        """Retry to connect to Orbit."""
 
         if self.state != STATE_STARTING:
             self.state = STATE_STARTING
@@ -154,7 +162,7 @@ class OrbitWebsocket:
             _LOGGER.info("Reconnecting to Orbit in %i", RECONNECT_DELAY)
 
     async def send(self, payload):
-        """Send a websocket message"""
+        """Send a websocket message."""
 
         if not self._ws.closed:
             await self._ws.send_str(json.dumps(payload))
