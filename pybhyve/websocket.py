@@ -42,7 +42,7 @@ class OrbitWebsocket:
 
         self._heartbeat_cb: TimerHandle
         self._heartbeat = 25
-        self._ws: ClientWebSocketResponse
+        self._ws: None
 
     def _cancel_heartbeat(self) -> None:
         """Cancel heartbeat."""
@@ -168,3 +168,4 @@ class OrbitWebsocket:
             await self._ws.send_str(json.dumps(payload))
         else:
             _LOGGER.warning("Tried to send message whilst websocket closed")
+
