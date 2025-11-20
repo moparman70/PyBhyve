@@ -25,10 +25,10 @@ class OrbitWebsocket:
 
     def __init__(
         self,
-        token: str,
-        loop: AbstractEventLoop,
-        session: ClientSession,
-        url: str,
+        token,
+        loop,
+        session,
+        url,
         async_callback,
     ) -> None:
         """Create resources for websocket communication."""
