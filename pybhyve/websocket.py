@@ -40,7 +40,7 @@ class OrbitWebsocket:
         self._async_callback = async_callback
         self._state = STATE_STOPPED
 
-        self._heartbeat_cb: TimerHandle
+        self._heartbeat_cb = None
         self._heartbeat = 25
         self._ws = None
 
@@ -168,5 +168,6 @@ class OrbitWebsocket:
             await self._ws.send_str(json.dumps(payload))
         else:
             _LOGGER.warning("Tried to send message whilst websocket closed")
+
 
 
