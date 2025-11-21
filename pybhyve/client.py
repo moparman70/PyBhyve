@@ -1,52 +1,42 @@
 """Define an object to interact with the REST API."""
 
-from __future__ import annotations
-
-from asyncio import ensure_future
-from asyncio.events import AbstractEventLoop
 import logging
 import re
 import time
 
-from aiohttp import ClientSession
-
+from .websocket import OrbitWebsocket
+from .errors import RequestError
+from asyncio import ensure_future
 from .const import (
     API_HOST,
     API_POLL_PERIOD,
-    DEVICE_HISTORY_PATH,
     DEVICES_PATH,
-    LOGIN_PATH,
+    DEVICE_HISTORY_PATH,
     TIMER_PROGRAMS_PATH,
+    LOGIN_PATH,
     WS_HOST,
 )
-from .errors import RequestError
-from .websocket import OrbitWebsocket
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Client:
-    """Define the API object."""
+    """Define the API object"""
 
     def __init__(
-        self,
-        username: str,
-        password: str,
-        loop: AbstractEventLoop,
-        session: ClientSession,
-        async_callback,
+        self, username: str, password: str, loop, session, async_callback
     ) -> None:
-        """Initialize."""
+        """Initialize"""
 
         self._username: str = username
-        self._password: str = password
+        self._password: int = password
         self._ws_url: str = WS_HOST
-        self._token: str
+        self._token: str = None
 
+        self._websocket = None
         self._loop = loop
         self._session = session
         self._async_callback = async_callback
-        self._websocket: OrbitWebsocket
 
         self._devices = []
         self._last_poll_devices = 0
@@ -54,17 +44,13 @@ class Client:
         self._timer_programs = []
         self._last_poll_programs = 0
 
-        self._device_histories = {}
+        self._device_histories = dict()
         self._last_poll_device_histories = 0
 
     async def _request(
-        self,
-        method: str,
-        endpoint: str,
-        params: dict | None = None,
-        json: dict | None = None,
+        self, method: str, endpoint: str, params: dict = None, json: dict = None
     ) -> list:
-        """Make a request against the API."""
+        """Make a request against the API"""
 
         url: str = f"{API_HOST}{endpoint}"
 
@@ -93,7 +79,7 @@ class Client:
                 raise RequestError(f"Error requesting data from {url}: {err}") from err
 
     async def _refresh_devices(self, force_update=False):
-        """Refresh devices."""
+        """Refresh devices"""
 
         now = time.time()
         if force_update:
@@ -108,7 +94,7 @@ class Client:
         self._last_poll_devices = now
 
     async def _refresh_timer_programs(self, force_update=False):
-        """Refresh timer programs."""
+        """Refresh timer programs"""
 
         now = time.time()
         if force_update:
@@ -122,7 +108,7 @@ class Client:
         self._last_poll_programs = now
 
     async def _refresh_device_history(self, device_id, force_update=False):
-        """Refresh device history."""
+        """Refresh device history"""
 
         now = time.time()
         if force_update:
@@ -145,13 +131,13 @@ class Client:
         self._last_poll_device_histories = now
 
     async def _async_ws_handler(self, data):
-        """Process incoming websocket message."""
+        """Process incoming websocket message"""
 
         if self._async_callback:
-            await ensure_future(self._async_callback(data))
+            ensure_future(self._async_callback(data))
 
     async def login(self) -> bool:
-        """Log in with username & password and save the token."""
+        """Log in with username & password and save the token"""
 
         url: str = f"{API_HOST}{LOGIN_PATH}"
         json = {"session": {"email": self._username, "password": self._password}}
@@ -180,37 +166,37 @@ class Client:
         return True
 
     def start(self):
-        """Start the Websocket."""
+        """Start the Websocket"""
 
         self._websocket.start()
 
     async def stop(self):
-        """Stop the websocket."""
+        """Stop the websocket"""
 
         if self._websocket is not None:
             await self._websocket.stop()
 
     def ws_state(self):
-        """Return the state of the websocket."""
+        """Return the state of the websocket"""
 
         return self._websocket.state
 
     @property
     async def devices(self):
-        """Get all devices."""
+        """Get all devices"""
 
         await self._refresh_devices()
         return self._devices
 
     @property
     async def timer_programs(self):
-        """Get timer programs."""
+        """Get timer programs"""
 
         await self._refresh_timer_programs()
         return self._timer_programs
 
     async def get_device(self, device_id, force_update=False):
-        """Get device by id."""
+        """Get device by id"""
 
         await self._refresh_devices(force_update=force_update)
         for device in self._devices:
@@ -219,19 +205,19 @@ class Client:
         return None
 
     async def get_device_history(self, device_id, force_update=False):
-        """Get device watering history by id."""
+        """Get device watering history by id"""
 
         await self._refresh_device_history(device_id, force_update=force_update)
         return self._device_histories.get(device_id)
 
     async def update_program(self, program_id, program):
-        """Update the state of a program."""
+        """Update the state of a program"""
 
-        path = f"{TIMER_PROGRAMS_PATH}/{program_id}"
+        path = "{0}/{1}".format(TIMER_PROGRAMS_PATH, program_id)
         json = {"sprinkler_timer_program": program}
         await self._request("put", path, json=json)
 
     async def send_message(self, payload):
-        """Send a message via the websocket."""
+        """Send a message via the websocket"""
 
         await self._websocket.send(payload)
