@@ -25,10 +25,10 @@ class OrbitWebsocket:
 
     def __init__(
         self,
-        token,
-        loop,
-        session,
-        url,
+        token: str,
+        loop: AbstractEventLoop,
+        session: ClientSession,
+        url: str,
         async_callback,
     ) -> None:
         """Create resources for websocket communication."""
@@ -40,14 +40,16 @@ class OrbitWebsocket:
         self._async_callback = async_callback
         self._state = STATE_STOPPED
 
-        self._heartbeat_cb = None
+        self._heartbeat_cb: TimerHandle
         self._heartbeat = 25
-        self._ws = None
+        self._ws: ClientWebSocketResponse
 
     def _cancel_heartbeat(self) -> None:
         """Cancel heartbeat."""
 
-        self._heartbeat_cb.cancel()
+        if self._heartbeat_cb is not None:
+            self._heartbeat_cb.cancel()
+            self._heartbeat_cb = None
 
     def _reset_heartbeat(self) -> None:
         """Reset heartbeat."""
@@ -168,6 +170,3 @@ class OrbitWebsocket:
             await self._ws.send_str(json.dumps(payload))
         else:
             _LOGGER.warning("Tried to send message whilst websocket closed")
-
-
-
